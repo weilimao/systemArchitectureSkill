@@ -1,0 +1,21 @@
+.checkpoints/
+.gemini/
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Environments & virtualenvs
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Temporary & OS files
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,97 @@
+# Architecture Guardian (架构守护者)
+
+> 解决工程化项目迭代中“功能越加越多、越写越庞大、AI 遗忘全局架构、代码腐化”的 Antigravity 架构守护 Skill。
+
+---
+
+## 📖 设计背景与解决痛点
+
+在基于 AI 辅助软件研发的工程化项目中，常见以下架构劣化过程：
+1. **上下文注意力衰减 (Context Decay)**：迭代轮次增多后，AI 无法在上下文里完整保留最初的架构图与分层约定。
+2. **架构文档滞后 (Doc Rot)**：代码一直在加，但文档停留在立项之初，导致新业务功能无处可查、重构困难。
+3. **分层破坏与重复建设**：AI 不知道项目中已经存在某些公共组件或已有业务域，导致重复造轮子或产生跨模块私有调用的“屎山代码”。
+
+**Architecture Guardian** 通过强约束的**双向闭环机制（事前查架构、事中遵规范、事后同架构）**，强制将每次新增业务功能点固化在标准化的项目架构目录中。
+
+---
+
+## 🏗️ 架构文档标准骨架
+
+在目标工程中，本 Skill 将维护一套分层且模块化的架构知识库：
+
+```text
+<项目根目录>/docs/architecture/
+├── ARCHITECTURE.md                  # 【主索引文件】全局分层拓扑、模块索引表、变更时序流
+├── decisions/                        # 【架构决策记录 (ADR)】技术选型与重大设计决策
+│   └── 0001-template.md
+└── modules/                          # 【业务模块子目录】垂直业务域拆分
+    ├── auth/                         # 示例模块：认证中心
+    │   └── README.md                 # 业务逻辑、时序流、已实现功能清单、关键类与对外接口
+    ├── order/                        # 示例模块：订单中心
+    │   └── README.md
+    └── ...
+```
+
+---
+
+## 🚀 安装与启用方式
+
+### 方式一：作为全局插件安装（推荐，所有项目生效）
+将本项目目录作为插件复制到用户全局配置路径：
+```bash
+# 复制至全局插件目录
+xcopy "e:\GPT\systemArchitectureSkill" "%USERPROFILE%\.gemini\config\plugins\architecture-guardian-plugin" /E /I /H /Y
+```
+安装后，所有由 Antigravity 驱动的项目在开发新功能时，均可自动识别并执行本 Skill。
+
+### 方式二：作为项目专属技能启用
+将 `skills/architecture-guardian` 目录直接拷贝至目标工程的 `.agents/skills/` 目录下即可：
+```text
+<目标项目根目录>/
+└── .agents/
+    └── skills/
+        └── architecture-guardian/
+            ├── SKILL.md
+            ├── scripts/arch_guardian.py
+            └── resources/templates/...
+```
+
+---
+
+## 🛠️ CLI 辅助工具命令行指南
+
+本 Skill 内置了零外部依赖的跨平台辅助工具 `arch_guardian.py`，AI 或开发者可直接调用：
+
+### 1. 初始化目标项目的架构骨架
+```bash
+python scripts/arch_guardian.py --workspace "<项目绝对路径>" init --name "<项目名称>" --desc "<系统定位描述>"
+```
+
+### 2. 创建并自动登记新的业务模块
+```bash
+python scripts/arch_guardian.py --workspace "<项目绝对路径>" new-module order --title "订单中心" --domain "交易与履约域" --desc "管理订单生命周期、状态机流转与履约支付"
+```
+
+### 3. 同步业务功能点（自动更新模块文档与主索引）
+```bash
+python scripts/arch_guardian.py --workspace "<项目绝对路径>" sync-feature order --title "超时自动关单" --desc "基于延迟队列实现30分钟未支付订单自动关闭并回滚库存" --code-ref "src/order/OrderAutoCancelService.java"
+```
+
+### 4. 记录重大架构决策 (ADR)
+```bash
+python scripts/arch_guardian.py --workspace "<项目绝对路径>" add-adr 0001 --title "引入分库分表与ShardingSphere中间件"
+```
+
+### 5. 校验架构文档完整性（检测坏链与未登记模块）
+```bash
+python scripts/arch_guardian.py --workspace "<项目绝对路径>" verify
+```
+
+---
+
+## 🧪 自动化测试与验证
+
+本项目自带完备的单元测试与端到端集成测试，具备严格的环境沙箱隔离机制（Teardown 确保零脏数据残留）：
+```bash
+python -m unittest tests/test_arch_guardian.py -v
+```
