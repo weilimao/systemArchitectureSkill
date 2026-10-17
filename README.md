@@ -62,10 +62,12 @@ xcopy "e:\GPT\systemArchitectureSkill" "%USERPROFILE%\.gemini\config\plugins\arc
 
 本 Skill 内置了零外部依赖的跨平台辅助工具 `arch_guardian.py`，AI 或开发者可直接调用：
 
-### 1. 初始化目标项目的架构骨架
+### 1. 初始化目标项目的架构骨架与常驻硬门禁
 ```bash
 python scripts/arch_guardian.py --workspace "<项目绝对路径>" init --name "<项目名称>" --desc "<系统定位描述>"
 ```
+> **自动注入硬门禁**：执行初始化时，工具会自动在目标工程根目录下建立或增补 `GEMINI.md` 常驻规则，确保项目后续的每一次日常业务代码修改均被强制要求同步业务文档。
+
 
 ### 2. 创建并自动登记新的业务模块
 ```bash

@@ -1,9 +1,9 @@
 ---
 name: architecture-guardian
 description: >-
-  CRITICAL: Use this skill whenever adding, refactoring, or completing any business feature in the workspace.
+  CRITICAL: Use this skill whenever adding, refactoring, modifying ANY business logic, changing API interfaces, or fixing business flows in the workspace.
   It enforces a two-way architecture loop: checking existing project architecture in docs/architecture/ before implementation,
-  and synchronizing new business features, logic, and data flow into docs/architecture/ARCHITECTURE.md and module-specific docs upon completion.
+  and synchronizing modified business logic, features, and flows into docs/architecture/ARCHITECTURE.md and module-specific docs upon completion.
 ---
 
 # 🛡️ Architecture Guardian (架构守护者)
@@ -57,6 +57,7 @@ flowchart TD
 2. **定位业务归属与影响面**:
    - 判断本次需求是扩展**已有业务模块**还是引入**全新业务域**。
    - 若为已有模块，打开 `docs/architecture/modules/<module_name>/README.md`，理解已有业务流、领域模型与核心接口，**严禁破坏已有分层或重复造轮子**。
+   - **【方案清单强制红线】**：在向用户提交《实施方案》时，方案中的“拟修改文件清单”**必须显式包含对应的业务逻辑说明文档**（如 `docs/architecture/modules/<module_name>/README.md`）。未包含文档的方案一律视为不合格方案，严禁开工。
 
 ---
 
@@ -72,7 +73,7 @@ flowchart TD
 
 ## 阶段三：事后架构增量同步 (Post-implementation Sync)
 
-业务代码与测试编写验证完成之后，**必须**同步更新架构文档库，绝不能以“已完成代码”直接收工：
+业务代码与测试编写验证完成之后，**必须**同步更新架构文档库。**【完工验收红线 (Definition of Done)】：仅代码测试通过不能算任务完成，必须完成业务逻辑文档同步后方可宣布交付！**
 
 ### 1. 全新业务模块同步 (New Domain Module)
 若本次实现属于全新的业务模块，先创建该模块的标准化文档并自动注册在主索引：

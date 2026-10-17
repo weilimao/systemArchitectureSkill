@@ -86,6 +86,19 @@ def init_architecture(
     print(f"     Main Index: {index_file}")
     print(f"     Modules Directory: {modules_dir}")
     print(f"     Decisions Directory: {decisions_dir}")
+
+    # Ensure GEMINI.md living architecture guardrail rule in workspace root
+    gemini_rule_file = workspace / "GEMINI.md"
+    gemini_tpl = read_template("GEMINI.template.md")
+    if not gemini_rule_file.exists():
+        gemini_rule_file.write_text(gemini_tpl, encoding="utf-8")
+        print(f"     Project Guardrail Rule: {gemini_rule_file}")
+    else:
+        existing_text = gemini_rule_file.read_text(encoding="utf-8")
+        if "Living Architecture Guardrail" not in existing_text:
+            gemini_rule_file.write_text(existing_text.rstrip() + "\n\n" + gemini_tpl, encoding="utf-8")
+            print(f"     Appended Living Architecture Guardrail to existing {gemini_rule_file}")
+
     return 0
 
 

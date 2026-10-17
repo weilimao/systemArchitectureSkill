@@ -1,0 +1,24 @@
+# 项目业务逻辑与活态架构同步硬红线 (Living Architecture Guardrail)
+
+> 本工程已接入 `architecture-guardian` 活态架构体系。为杜绝“代码持续迭代而架构文档滞后腐化（Architecture Drift）”的痛点，所有在本项目中的 AI 编程交互必须严格执行以下红线准则：
+
+---
+
+## 1. 业务逻辑修改的方案前置约束 (Pre-flight Planning Rule)
+凡涉及工程内**业务逻辑修改、新增功能特性、调整接口契约、重构数据流转或修复核心业务规则**时：
+- 在向用户提交的《实施方案》的**“拟修改文件清单”**中，**必须强制包含对应的业务逻辑说明文档**：
+  `docs/architecture/modules/<module_name>/README.md`
+- **严禁**仅列出业务代码与测试文件而遗漏业务说明文档。若清单中未包含对应模块架构文档，该方案视为**不合格方案**，严禁开工。
+
+---
+
+## 2. 交付闭环与业务文档同步标准 (Definition of Done)
+任务完成的充要条件不仅包含业务代码与自动化测试全绿，**还必须达成业务逻辑说明的强一致同步**：
+1. **模块文档同步**：必须更新 `docs/architecture/modules/<module_name>/README.md` 中的【业务流程时序】、【已实现功能特性清单】与【关键接口/类表】。
+2. **主索引时序更新**：必须同步刷新 `docs/architecture/ARCHITECTURE.md` 中的【最近架构与功能变更流】。
+3. **交付成果出示**：在最终向用户汇报交付时，必须出示已更新的架构与业务文档链接；**未完成业务文档同步前，严禁宣布任务完成**。
+
+---
+
+## 3. 工具化免确认支持 (Direct Tooling Operations)
+当用户或流程调用 `arch_guardian.py` 进行纯文档操作（如 `init`、`new-module`、`sync-feature`、`verify`）时，属于确定性文档运维工具，直接执行并产出结果，严禁输出多余的等待确认方案。

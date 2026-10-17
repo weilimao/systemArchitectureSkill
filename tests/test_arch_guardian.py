@@ -55,6 +55,24 @@ class TestArchitectureGuardian(unittest.TestCase):
         self.assertIn("DemoApp", content)
         self.assertIn("Testing living architecture.", content)
 
+        # Verify GEMINI.md project rule was created
+        gemini_rule = self.workspace / "GEMINI.md"
+        self.assertTrue(gemini_rule.exists(), "GEMINI.md rule should be created in workspace root")
+        self.assertIn("Living Architecture Guardrail", gemini_rule.read_text(encoding="utf-8"))
+
+    def test_init_gemini_rule_merge(self):
+        """Verify 'init' safely appends to existing GEMINI.md without overwriting."""
+        gemini_rule = self.workspace / "GEMINI.md"
+        gemini_rule.write_text("# My Existing Custom Rules\nDo not delete me.", encoding="utf-8")
+
+        code = arch_guardian.init_architecture(workspace=self.workspace, project_name="MergedApp")
+        self.assertEqual(code, 0)
+
+        rule_content = gemini_rule.read_text(encoding="utf-8")
+        self.assertIn("# My Existing Custom Rules", rule_content)
+        self.assertIn("Do not delete me.", rule_content)
+        self.assertIn("Living Architecture Guardrail", rule_content)
+
     def test_init_idempotency(self):
         """Verify 'init' without --force does not overwrite existing file."""
         arch_guardian.init_architecture(workspace=self.workspace, project_name="InitialApp")
