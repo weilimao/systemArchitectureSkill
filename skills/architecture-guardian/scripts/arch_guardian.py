@@ -8,6 +8,7 @@ module matrices, and feature synchronization in engineering projects.
 
 import argparse
 import datetime
+import json
 import os
 from pathlib import Path
 import re
@@ -41,9 +42,41 @@ def read_template(filename: str) -> str:
     return tpl_path.read_text(encoding="utf-8")
 
 
-def get_architecture_root(workspace: Path) -> Path:
-    """Resolve the architecture docs directory."""
-    return workspace / "docs" / "architecture"
+CONFIG_FILENAME = ".arch-guardian.json"
+
+
+def load_project_config(workspace: Path) -> dict:
+    """Load configuration from .arch-guardian.json in workspace root if present."""
+    cfg_file = workspace / CONFIG_FILENAME
+    if cfg_file.exists():
+        try:
+            return json.loads(cfg_file.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[WARN] Failed to parse {cfg_file}: {e}")
+    return {}
+
+
+def get_architecture_root(
+    workspace: Path,
+    custom_arch_dir: Optional[str] = None,
+) -> Path:
+    """Resolve the architecture docs directory with priority:
+    1. custom_arch_dir (CLI override)
+    2. .arch-guardian.json config file in workspace root
+    3. Default: workspace / 'docs' / 'architecture'
+    """
+    target_path_str = custom_arch_dir
+    if not target_path_str:
+        cfg = load_project_config(workspace)
+        target_path_str = cfg.get("arch_dir") or cfg.get("archDir")
+
+    if target_path_str:
+        raw_path = Path(target_path_str)
+        if raw_path.is_absolute():
+            return raw_path.resolve()
+        return (workspace / raw_path).resolve()
+
+    return (workspace / "docs" / "architecture").resolve()
 
 
 def init_architecture(
@@ -51,12 +84,21 @@ def init_architecture(
     project_name: Optional[str] = None,
     description: Optional[str] = None,
     force: bool = False,
+    arch_dir: Optional[str] = None,
 ) -> int:
     """Initialize standard architecture directory skeleton."""
-    arch_root = get_architecture_root(workspace)
+    arch_root = get_architecture_root(workspace, arch_dir)
     modules_dir = arch_root / "modules"
     decisions_dir = arch_root / "decisions"
     index_file = arch_root / "ARCHITECTURE.md"
+
+    # Persist config if custom arch_dir was provided
+    if arch_dir:
+        cfg_file = workspace / CONFIG_FILENAME
+        existing_cfg = load_project_config(workspace)
+        existing_cfg["arch_dir"] = arch_dir
+        cfg_file.write_text(json.dumps(existing_cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"[OK] Saved architecture pointer to: {cfg_file}")
 
     if index_file.exists() and not force:
         print(f"[WARN] Architecture blueprint already exists at: {index_file}")
@@ -87,9 +129,15 @@ def init_architecture(
     print(f"     Modules Directory: {modules_dir}")
     print(f"     Decisions Directory: {decisions_dir}")
 
+    # Determine display path for GEMINI.md
+    try:
+        rel_arch = os.path.relpath(arch_root, workspace).replace("\\", "/")
+    except ValueError:
+        rel_arch = str(arch_root).replace("\\", "/")
+
     # Ensure GEMINI.md living architecture guardrail rule in workspace root
     gemini_rule_file = workspace / "GEMINI.md"
-    gemini_tpl = read_template("GEMINI.template.md")
+    gemini_tpl = read_template("GEMINI.template.md").replace("{{ARCH_DIR_REL}}", rel_arch)
     if not gemini_rule_file.exists():
         gemini_rule_file.write_text(gemini_tpl, encoding="utf-8")
         print(f"     Project Guardrail Rule: {gemini_rule_file}")
@@ -108,13 +156,14 @@ def add_module(
     title: str,
     domain: Optional[str] = None,
     description: Optional[str] = None,
+    arch_dir: Optional[str] = None,
 ) -> int:
     """Create a new business module documentation and register in the main index."""
     if not re.match(r"^[a-zA-Z0-9_\-]+$", name):
         print(f"[ERROR] Invalid module name '{name}'. Only alphanumeric, '_' and '-' allowed.")
         return 1
 
-    arch_root = get_architecture_root(workspace)
+    arch_root = get_architecture_root(workspace, arch_dir)
     index_file = arch_root / "ARCHITECTURE.md"
     if not index_file.exists():
         print(f"[ERROR] ARCHITECTURE.md not found. Please run 'init' first.")
@@ -178,9 +227,10 @@ def sync_feature(
     title: str,
     description: str,
     code_ref: Optional[str] = None,
+    arch_dir: Optional[str] = None,
 ) -> int:
     """Append a business feature to the module documentation and update index log."""
-    arch_root = get_architecture_root(workspace)
+    arch_root = get_architecture_root(workspace, arch_dir)
     index_file = arch_root / "ARCHITECTURE.md"
     module_readme = arch_root / "modules" / module / "README.md"
 
@@ -244,9 +294,10 @@ def add_adr(
     workspace: Path,
     adr_id: str,
     title: str,
+    arch_dir: Optional[str] = None,
 ) -> int:
     """Create an Architecture Decision Record (ADR) and register in main index."""
-    arch_root = get_architecture_root(workspace)
+    arch_root = get_architecture_root(workspace, arch_dir)
     index_file = arch_root / "ARCHITECTURE.md"
     decisions_dir = arch_root / "decisions"
 
@@ -289,9 +340,12 @@ def add_adr(
     return 0
 
 
-def verify_architecture(workspace: Path) -> int:
+def verify_architecture(
+    workspace: Path,
+    arch_dir: Optional[str] = None,
+) -> int:
     """Verify integrity of architecture documentation, broken links, and missing modules."""
-    arch_root = get_architecture_root(workspace)
+    arch_root = get_architecture_root(workspace, arch_dir)
     index_file = arch_root / "ARCHITECTURE.md"
     modules_dir = arch_root / "modules"
 
@@ -354,6 +408,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=".",
         help="Target workspace root path (default: current directory).",
     )
+    parser.add_argument(
+        "--arch-dir",
+        "-a",
+        help="Custom architecture docs directory (overrides .arch-guardian.json and default).",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Subcommand: init
@@ -361,6 +420,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--name", "-n", help="Project name.")
     init_parser.add_argument("--desc", "-d", help="Project description.")
     init_parser.add_argument("--force", "-f", action="store_true", help="Force overwrite index.")
+    init_parser.add_argument("--arch-dir", "-a", help="Custom architecture docs directory (persists to .arch-guardian.json).")
 
     # Subcommand: new-module
     mod_parser = subparsers.add_parser("new-module", help="Create and register a business module.")
@@ -383,7 +443,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Subcommand: verify
     subparsers.add_parser("verify", help="Verify links and documentation integrity.")
-
     return parser
 
 
@@ -392,6 +451,7 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     workspace = Path(args.workspace).resolve()
+    arch_dir = getattr(args, "arch_dir", None)
 
     if args.command == "init":
         return init_architecture(
@@ -399,6 +459,7 @@ def main() -> int:
             project_name=args.name,
             description=args.desc,
             force=args.force,
+            arch_dir=arch_dir,
         )
     elif args.command == "new-module":
         return add_module(
@@ -407,6 +468,7 @@ def main() -> int:
             title=args.title,
             domain=args.domain,
             description=args.desc,
+            arch_dir=arch_dir,
         )
     elif args.command == "sync-feature":
         return sync_feature(
@@ -415,15 +477,17 @@ def main() -> int:
             title=args.title,
             description=args.desc,
             code_ref=args.code_ref,
+            arch_dir=arch_dir,
         )
     elif args.command == "add-adr":
         return add_adr(
             workspace=workspace,
             adr_id=args.id,
             title=args.title,
+            arch_dir=arch_dir,
         )
     elif args.command == "verify":
-        return verify_architecture(workspace=workspace)
+        return verify_architecture(workspace=workspace, arch_dir=arch_dir)
     else:
         parser.print_help()
         return 1

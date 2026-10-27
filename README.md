@@ -58,6 +58,32 @@ xcopy "e:\GPT\systemArchitectureSkill" "%USERPROFILE%\.gemini\config\plugins\arc
 
 ---
 
+## 🌐 分布式多工程协同与架构目录指针 (.arch-guardian.json)
+
+在分布式或微服务架构中，多个子服务（如 `order-service`、`user-service`、`gateway`）通常各为一个独立 Git 仓库。为实现多人协同开发与全局架构集中追踪，可通过**架构指针**将各子工程统一指向一个共享架构仓库：
+
+### 1. 配置方式：子工程根目录 `.arch-guardian.json`
+在子工程根目录下创建 `.arch-guardian.json`（支持相对路径与绝对路径）：
+```json
+{
+  "arch_dir": "../central-architecture/docs/architecture"
+}
+```
+
+### 2. 命令行一键初始化与自动持久化
+在微服务工程根目录下执行初始化时传入 `--arch-dir`，脚本会自动持久化生成 `.arch-guardian.json` 并配置工程 `GEMINI.md`：
+```bash
+python scripts/arch_guardian.py --workspace "<子工程路径>" init --name "<平台总名称>" --arch-dir "../central-architecture/docs/architecture"
+```
+后续 AI 在该子工程下执行 `new-module`、`sync-feature`、`verify` 时，将自动路由并更新共享架构库，无需再手动传递路径参数！
+
+### 3. 解析优先级
+1. **CLI 显式参数**：`--arch-dir / -a`（最高优先级）
+2. **工程配置文件**：当前工程根目录的 `.arch-guardian.json`
+3. **默认回退**：`<当前工程根目录>/docs/architecture`
+
+---
+
 ## 🛠️ CLI 辅助工具命令行指南
 
 本 Skill 内置了零外部依赖的跨平台辅助工具 `arch_guardian.py`，AI 或开发者可直接调用：

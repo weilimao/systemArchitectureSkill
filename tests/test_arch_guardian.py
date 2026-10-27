@@ -181,6 +181,124 @@ class TestArchitectureGuardian(unittest.TestCase):
         # Should fail with code 1
         self.assertEqual(arch_guardian.verify_architecture(self.workspace), 1)
 
+    def test_default_arch_root_when_no_config(self):
+        """Verify default fallback to workspace/docs/architecture when no config exists."""
+        expected = (self.workspace / "docs" / "architecture").resolve()
+        self.assertEqual(arch_guardian.get_architecture_root(self.workspace), expected)
+
+    def test_arch_root_from_config_file_relative_and_absolute(self):
+        """Verify .arch-guardian.json relative and absolute path resolution."""
+        # 1. Relative path
+        cfg_file = self.workspace / ".arch-guardian.json"
+        cfg_file.write_text('{"arch_dir": "../central-arch/docs/architecture"}', encoding="utf-8")
+        expected_rel = (self.workspace / "../central-arch/docs/architecture").resolve()
+        self.assertEqual(arch_guardian.get_architecture_root(self.workspace), expected_rel)
+
+        # 2. Absolute path
+        abs_target = (self.workspace / "custom_abs_arch").resolve()
+        cfg_file.write_text(f'{{"arch_dir": "{str(abs_target).replace(chr(92), "/")}"}}', encoding="utf-8")
+        self.assertEqual(arch_guardian.get_architecture_root(self.workspace), abs_target)
+
+    def test_arch_root_cli_override(self):
+        """Verify CLI --arch-dir overrides .arch-guardian.json."""
+        cfg_file = self.workspace / ".arch-guardian.json"
+        cfg_file.write_text('{"arch_dir": "docs/architecture/from_config"}', encoding="utf-8")
+        cli_override = "docs/architecture/from_cli"
+        expected = (self.workspace / cli_override).resolve()
+        self.assertEqual(
+            arch_guardian.get_architecture_root(self.workspace, custom_arch_dir=cli_override),
+            expected,
+        )
+
+    def test_init_with_arch_dir_persists_config(self):
+        """Verify 'init' with custom arch_dir persists config and initializes target."""
+        shared_arch = self.workspace / "shared_central_arch"
+        code = arch_guardian.init_architecture(
+            workspace=self.workspace,
+            project_name="SubService",
+            arch_dir=str(shared_arch),
+        )
+        self.assertEqual(code, 0)
+
+        # Verify config created in workspace
+        cfg_file = self.workspace / ".arch-guardian.json"
+        self.assertTrue(cfg_file.exists(), ".arch-guardian.json should be created")
+        content = cfg_file.read_text(encoding="utf-8")
+        self.assertIn("arch_dir", content)
+
+        # Verify architecture initialized at shared_arch
+        self.assertTrue((shared_arch / "ARCHITECTURE.md").exists())
+        self.assertTrue((shared_arch / "modules").exists())
+
+    def test_distributed_multi_project_sync_lifecycle(self):
+        """Test distributed scenario: multiple microservices sharing one architecture repo."""
+        shared_arch_dir = self.workspace / "central_arch_repo" / "docs" / "architecture"
+        order_service_dir = self.workspace / "services" / "order-service"
+        user_service_dir = self.workspace / "services" / "user-service"
+
+        order_service_dir.mkdir(parents=True, exist_ok=True)
+        user_service_dir.mkdir(parents=True, exist_ok=True)
+
+        # 1. Initialize order-service pointing to shared_arch_dir
+        code1 = arch_guardian.init_architecture(
+            workspace=order_service_dir,
+            project_name="CentralDistributedPlatform",
+            arch_dir=str(shared_arch_dir),
+        )
+        self.assertEqual(code1, 0)
+        self.assertTrue((order_service_dir / ".arch-guardian.json").exists())
+
+        # 2. Initialize user-service pointing to the same shared_arch_dir
+        code2 = arch_guardian.init_architecture(
+            workspace=user_service_dir,
+            project_name="CentralDistributedPlatform",
+            arch_dir=str(shared_arch_dir),
+        )
+        self.assertEqual(code2, 0)
+        self.assertTrue((user_service_dir / ".arch-guardian.json").exists())
+
+        # 3. order-service adds module and feature
+        self.assertEqual(
+            arch_guardian.add_module(order_service_dir, name="order_mod", title="订单中心"),
+            0,
+        )
+        self.assertEqual(
+            arch_guardian.sync_feature(
+                order_service_dir,
+                module="order_mod",
+                title="创建订单",
+                description="订单创建与库存扣减",
+            ),
+            0,
+        )
+
+        # 4. user-service adds module and feature to the SAME central arch
+        self.assertEqual(
+            arch_guardian.add_module(user_service_dir, name="user_mod", title="用户中心"),
+            0,
+        )
+        self.assertEqual(
+            arch_guardian.sync_feature(
+                user_service_dir,
+                module="user_mod",
+                title="JWT登录认证",
+                description="支持多端Token验签",
+            ),
+            0,
+        )
+
+        # 5. Verify shared architecture index contains BOTH modules
+        central_index = shared_arch_dir / "ARCHITECTURE.md"
+        central_text = central_index.read_text(encoding="utf-8")
+        self.assertIn("订单中心", central_text)
+        self.assertIn("用户中心", central_text)
+        self.assertIn("创建订单", central_text)
+        self.assertIn("JWT登录认证", central_text)
+
+        # 6. Verify integrity passes for both services
+        self.assertEqual(arch_guardian.verify_architecture(order_service_dir), 0)
+        self.assertEqual(arch_guardian.verify_architecture(user_service_dir), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,13 +46,14 @@ flowchart TD
 
 在动手编写或修改任何业务代码之前，**必须**先执行以下架构对齐步骤：
 
-1. **检查工程架构目录**:
-   检查工作区根目录是否存在 `docs/architecture/ARCHITECTURE.md`：
-   - **若不存在**：优先执行初始化命令搭建架构骨架：
+1. **检查工程架构目录与分布式指针**:
+   检查工作区根目录是否存在 `.arch-guardian.json` 配置指针或 `docs/architecture/ARCHITECTURE.md`：
+   - **分布式/多工程场景**：若根目录存在 `.arch-guardian.json`，工具将自动路由至其指定的共享中心架构库（支持相对或绝对路径）。
+   - **若架构文档不存在**：优先执行初始化命令搭建架构骨架（可指定 `--arch-dir` 统一归集）：
      ```bash
-     python "<SKILL_DIR>/scripts/arch_guardian.py" --workspace "<项目绝对路径>" init --name "<项目名称>"
+     python "<SKILL_DIR>/scripts/arch_guardian.py" --workspace "<项目绝对路径>" init --name "<项目名称>" [--arch-dir "<共享架构目录>"]
      ```
-   - **若已存在**：必须先使用 `view_file` 阅读 `docs/architecture/ARCHITECTURE.md` 的全局分层与业务模块索引矩阵。
+   - **若已存在**：必须先使用 `view_file` 阅读对应架构库中的 `ARCHITECTURE.md` 全局分层与业务模块索引矩阵。
 
 2. **定位业务归属与影响面**:
    - 判断本次需求是扩展**已有业务模块**还是引入**全新业务域**。
