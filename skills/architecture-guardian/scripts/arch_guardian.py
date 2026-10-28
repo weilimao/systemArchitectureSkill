@@ -16,9 +16,19 @@ import sys
 from typing import List, Optional
 
 try:
-    from searcher import format_search_results, search_docs
+    from searcher import (
+        format_locate_results,
+        format_search_results,
+        locate_docs,
+        search_docs,
+    )
 except ImportError:
-    from .searcher import format_search_results, search_docs
+    from .searcher import (
+        format_locate_results,
+        format_search_results,
+        locate_docs,
+        search_docs,
+    )
 
 
 def get_current_date() -> str:
@@ -278,6 +288,19 @@ def add_adr(workspace: Path, adr_id: str, title: str, arch_dir: Optional[str] = 
     return 0
 
 
+def cmd_locate_docs(
+    workspace: Path,
+    keywords: List[str],
+    arch_dir: Optional[str] = None,
+    case_sensitive: bool = False,
+) -> int:
+    """Locate specific sections across architecture docs matching keywords."""
+    arch_root = get_architecture_root(workspace, arch_dir)
+    results = locate_docs(arch_root, keywords, case_sensitive=case_sensitive)
+    print(format_locate_results(results, keywords, arch_root))
+    return 0
+
+
 def cmd_search_docs(
     workspace: Path,
     keywords: List[str],
@@ -362,6 +385,13 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument("--desc", "-d", required=True, help="Detailed feature description.")
     sync_parser.add_argument("--code-ref", "-c", help="Reference to main code class/function.")
 
+    # Subcommand: locate
+    locate_parser = subparsers.add_parser(
+        "locate", help="Quickly locate architecture sections and modules by keywords."
+    )
+    locate_parser.add_argument("keywords", nargs="+", help="Keywords to locate across architecture docs.")
+    locate_parser.add_argument("--case-sensitive", "-s", action="store_true", help="Perform case-sensitive matching.")
+
     # Subcommand: search-docs
     search_parser = subparsers.add_parser("search-docs", help="Search keywords across architecture documents.")
     search_parser.add_argument("keywords", nargs="+", help="Keywords to search across docs.")
@@ -395,6 +425,13 @@ def main() -> int:
     elif args.command == "sync-feature":
         return sync_feature(
             workspace=workspace, module=args.module, title=args.title, description=args.desc, code_ref=args.code_ref, arch_dir=arch_dir
+        )
+    elif args.command == "locate":
+        return cmd_locate_docs(
+            workspace=workspace,
+            keywords=args.keywords,
+            arch_dir=arch_dir,
+            case_sensitive=getattr(args, "case_sensitive", False),
         )
     elif args.command == "search-docs":
         return cmd_search_docs(workspace=workspace, keywords=args.keywords, arch_dir=arch_dir, context_lines=args.context)

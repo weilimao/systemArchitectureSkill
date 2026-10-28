@@ -360,5 +360,87 @@ class TestArchitectureGuardian(unittest.TestCase):
         self.assertEqual(code, 0)
 
 
+
+    def test_locate_docs_section_tracking(self):
+        """Verify locate_docs pinpoints exact heading hierarchies and line numbers."""
+        arch_guardian.init_architecture(workspace=self.workspace, project_name="LocateApp")
+        arch_guardian.add_module(self.workspace, name="order", title="订单中心")
+
+        order_readme = self.workspace / "docs" / "architecture" / "modules" / "order" / "README.md"
+        custom_content = """# 业务模块说明 (order)
+
+## 1. 模块定位与职责
+负责订单生命周期。
+
+## 3. 核心业务流程与时序图
+
+### 3.1 订单正向创建与扣减
+扣减库存流程。
+
+### 3.2 订单超时自动取消与退款
+基于延迟队列实现30分钟自动取消，调用 RefundGateway 执行退款。
+
+## 4. 关键类与对外服务接口
+- `OrderRefundService`: 负责退款处理
+"""
+        order_readme.write_text(custom_content, encoding="utf-8")
+
+        arch_root = self.workspace / "docs" / "architecture"
+        results = searcher.locate_docs(arch_root, keywords=["RefundGateway", "OrderRefundService"])
+
+        self.assertTrue(len(results) > 0, "Should locate results")
+        order_res = [r for r in results if r.module_name == "order"][0]
+        self.assertEqual(order_res.module_name, "order")
+
+        paths = [" > ".join(m.section_path) for m in order_res.matches]
+        self.assertTrue(
+            any("3.2 订单超时自动取消与退款" in p for p in paths),
+            f"Expected section 3.2 in paths: {paths}",
+        )
+        self.assertTrue(
+            any("4. 关键类与对外服务接口" in p for p in paths),
+            f"Expected section 4 in paths: {paths}",
+        )
+
+        for m in order_res.matches:
+            self.assertTrue(m.line_number > 0)
+            self.assertIn(m.matched_keyword, ["RefundGateway", "OrderRefundService"])
+
+    def test_locate_docs_formatting(self):
+        """Verify format_locate_results produces clean navigation tree."""
+        arch_guardian.init_architecture(workspace=self.workspace, project_name="TreeApp")
+        arch_guardian.add_module(self.workspace, name="payment", title="支付中心")
+        arch_root = self.workspace / "docs" / "architecture"
+
+        results = searcher.locate_docs(arch_root, keywords=["支付中心"])
+        formatted = searcher.format_locate_results(results, ["支付中心"], arch_root)
+
+        self.assertIn("[LOCATE] 架构说明快速定位导航", formatted)
+        self.assertIn("【业务模块: payment】", formatted)
+        self.assertIn("└── 章节:", formatted)
+        self.assertIn("[GUIDE] 靶向阅读建议", formatted)
+
+    def test_locate_docs_cli_parsing_and_distributed(self):
+        """Verify locate CLI parsing and execution with distributed arch pointer."""
+        shared_arch = self.workspace / "shared_arch_docs"
+        service_repo = self.workspace / "service_b"
+        service_repo.mkdir(parents=True, exist_ok=True)
+
+        arch_guardian.init_architecture(
+            workspace=service_repo,
+            project_name="DistributedPlatform",
+            arch_dir=str(shared_arch),
+        )
+        arch_guardian.add_module(service_repo, name="user", title="用户中心")
+
+        parser = arch_guardian.build_parser()
+        args = parser.parse_args(["--workspace", str(service_repo), "locate", "用户中心"])
+        self.assertEqual(args.command, "locate")
+        self.assertEqual(args.keywords, ["用户中心"])
+
+        code = arch_guardian.cmd_locate_docs(service_repo, keywords=args.keywords)
+        self.assertEqual(code, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

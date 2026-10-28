@@ -7,8 +7,9 @@
 ## 1. 业务逻辑修改的方案前置约束 (Pre-flight Planning Rule)
 凡涉及工程内**业务逻辑修改、新增功能特性、调整接口契约、重构数据流转或修复核心业务规则**时：
 1. **三级前置调研时序（核心约束）**：
-   - **查架构总览**：先查阅 `{{ARCH_DIR_REL}}/ARCHITECTURE.md` 掌握全局分层与模块边界；
-   - **定业务逻辑**：再定位 `{{ARCH_DIR_REL}}/modules/<module_name>/README.md` 理解已有业务流与领域规则；
+   - **秒级定位（多模块推荐）**：在模块较多时，优先运行 `locate <关键词>` 秒级锁定具体模块与章节行号，靶向阅读对应段落，严禁盲目通篇通读全部模块文档；
+   - **查架构总览**：查阅 `{{ARCH_DIR_REL}}/ARCHITECTURE.md` 掌握全局分层与模块边界；
+   - **定业务逻辑**：定位 `{{ARCH_DIR_REL}}/modules/<module_name>/README.md` 理解已有业务流与领域规则；
    - **验真实代码**：依据文档索引深入源码阅读，核实当前真实代码实现、接口入参出参及依赖分支，严禁脱离实际代码脑补臆造。
 2. **方案清单强制红线**：
    - 在向用户提交的《实施方案》的**“拟修改文件清单”**中，**必须强制包含对应的业务逻辑说明文档**：
@@ -27,4 +28,4 @@
 ---
 
 ## 3. 工具化免确认支持 (Direct Tooling Operations)
-当用户或流程调用 `arch_guardian.py` 进行纯文档操作（如 `init`、`new-module`、`sync-feature`、`search-docs`、`verify`）时，属于确定性文档运维工具，直接执行并产出结果，严禁输出多余的等待确认方案。
+当用户或流程调用 `arch_guardian.py` 进行纯文档操作（如 `init`、`locate`、`new-module`、`sync-feature`、`search-docs`、`verify`）时，属于确定性文档运维工具，直接执行并产出结果，严禁输出多余的等待确认方案。
