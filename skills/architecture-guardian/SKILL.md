@@ -17,7 +17,7 @@ description: >-
 为避免繁琐的交互，特对操作场景作如下严格边界划分：
 
 1. **【场景 A：纯架构文档指令 (Direct Tooling Commands)】—— 立即直接执行，严禁出方案拦截**
-   - **适用指令**：用户显式要求“初始化架构文档”、“生成/更新模块说明”、“同步架构变更”、“记录 ADR”、“校验架构完整性”等纯文档与元数据维护命令。
+   - **适用指令**：用户显式要求“初始化架构文档”、“生成/更新模块说明”、“同步架构变更”、“检索文档影响面”、“记录 ADR”、“校验架构完整性”等纯文档与元数据维护命令。
    - **行为准则**：此类指令属于**确定性辅助工具操作（Deterministic Tooling Execution）**，AI **必须直接运行 `arch_guardian.py` 或直接创建/更新目标 Markdown 架构文档**，执行完毕后直接展示生成的架构全景与文件链接，**严禁多此一举地输出等待确认的《实施方案》**！
 
 2. **【场景 B：业务功能/代码开发 (Business Code Implementation)】—— 严格遵循前置方案确认**
@@ -30,35 +30,50 @@ description: >-
 
 ```mermaid
 flowchart TD
-    Req["接收业务开发/变更需求"] --> Phase1["阶段一：事前对齐 (Pre-flight Check)"]
-    Phase1 --> ReadArch["查阅 docs/architecture/ 主索引与目标模块"]
-    ReadArch --> Phase2["阶段二：规范编码 (Clean Implementation)"]
+    Req["接收业务新功能/修改需求"] --> Phase1["阶段一：事前对齐与代码验证 (Pre-flight)"]
+    Phase1 --> Step1["1. 查阅 ARCHITECTURE.md 了解系统全景分层"]
+    Step1 --> Step2["2. 定位 modules/<module>/README.md 明确业务规则"]
+    Step2 --> Step3["3. 穿透源码阅读确认真实代码与数据流"]
+    Step3 --> Step4["4. 制定方案 (清单含业务文档，经确认后开工)"]
+    Step4 --> Phase2["阶段二：规范编码与测试 (Implementation)"]
     Phase2 --> Coding["分层编码 + 单元测试/业务测试全部绿灯"]
-    Coding --> Phase3["阶段三：事后同步 (Architecture Sync)"]
-    Phase3 --> SyncDoc["运行 arch_guardian.py 同步功能点至模块与主索引"]
+    Coding --> Phase3["阶段三：事后增量同步 (Architecture Sync)"]
+    Phase3 --> SearchDoc["检索文档影响面 (search-docs) 识别全域关联文档"]
+    SearchDoc --> MultiSync["多文档协同同步更新业务逻辑与接口契约"]
+    MultiSync --> SyncDoc["运行 arch_guardian.py 同步功能点至模块与主索引"]
     SyncDoc --> VerifyDoc["运行 verify 校验架构完整性与链接有效性"]
     VerifyDoc --> Done["完成闭环并向用户汇报交付"]
 ```
 
 ---
 
-## 阶段一：事前架构对齐 (Pre-flight Check)
+## 阶段一：事前架构对齐与实体验证 (Pre-flight Check)
 
-在动手编写或修改任何业务代码之前，**必须**先执行以下架构对齐步骤：
+在动手编写或修改任何业务代码之前，**必须**严格遵循“**先查架构文档 -> 定位业务逻辑 -> 穿透代码确认 -> 制定方案开工**”的四步递进准则：
 
-1. **检查工程架构目录与分布式指针**:
+1. **查架构总览与分布式指针 (Scan Architecture Blueprint)**:
    检查工作区根目录是否存在 `.arch-guardian.json` 配置指针或 `docs/architecture/ARCHITECTURE.md`：
    - **分布式/多工程场景**：若根目录存在 `.arch-guardian.json`，工具将自动路由至其指定的共享中心架构库（支持相对或绝对路径）。
    - **若架构文档不存在**：优先执行初始化命令搭建架构骨架（可指定 `--arch-dir` 统一归集）：
      ```bash
      python "<SKILL_DIR>/scripts/arch_guardian.py" --workspace "<项目绝对路径>" init --name "<项目名称>" [--arch-dir "<共享架构目录>"]
      ```
-   - **若已存在**：必须先使用 `view_file` 阅读对应架构库中的 `ARCHITECTURE.md` 全局分层与业务模块索引矩阵。
+   - **若已存在**：必须先使用 `view_file` 阅读对应架构库中的 `ARCHITECTURE.md`，宏观掌握全局技术分层、通用约束与业务模块索引矩阵。
 
-2. **定位业务归属与影响面**:
+2. **定位业务模块与业务逻辑 (Locate Domain Module Logic)**:
    - 判断本次需求是扩展**已有业务模块**还是引入**全新业务域**。
-   - 若为已有模块，打开 `docs/architecture/modules/<module_name>/README.md`，理解已有业务流、领域模型与核心接口，**严禁破坏已有分层或重复造轮子**。
-   - **【方案清单强制红线】**：在向用户提交《实施方案》时，方案中的“拟修改文件清单”**必须显式包含对应的业务逻辑说明文档**（如 `docs/architecture/modules/<module_name>/README.md`）。未包含文档的方案一律视为不合格方案，严禁开工。
+   - 若为已有模块，打开 `docs/architecture/modules/<module_name>/README.md`，深入理解已有的**业务时序流、领域模型、核心接口与依赖边界**，严禁破坏既有领域划分或重复造轮子。
+
+3. **穿透源码实体验证 (Ground Truth Code Verification) 【核心红线】**:
+   - 依据模块业务文档中列出的核心类、接口与关键代码路径，使用代码查看工具（如 `read_file`、`search_code`）**深入真实源码进行事实比对**：
+     - 核对真实代码逻辑是否与文档描述一致，确认实际方法签名、入参出参以及返回值模型；
+     - 查验核心业务规则的分支条件、异常处理、数据库持久化方式及缓存机制；
+     - **严禁**仅凭文档或记忆脑补代码实现，必须以“代码真实运行逻辑”为事实锚点。
+
+4. **出具《实施方案》与确认开工**:
+   - 基于前三步调研的事实依据，向用户提交严谨的《实施方案》；
+   - **【方案清单强制红线】**：方案中的“拟修改文件清单”**必须显式包含对应的业务逻辑说明文档**（如 `docs/architecture/modules/<module_name>/README.md`）。未包含文档的方案一律视为不合格方案，严禁开工。
+   - 经用户明确确认后，方可进入“阶段二”编写代码。
 
 ---
 
@@ -75,6 +90,14 @@ flowchart TD
 ## 阶段三：事后架构增量同步 (Post-implementation Sync)
 
 业务代码与测试编写验证完成之后，**必须**同步更新架构文档库。**【完工验收红线 (Definition of Done)】：仅代码测试通过不能算任务完成，必须完成业务逻辑文档同步后方可宣布交付！**
+
+### 0. 全域文档影响面检索与协同同步 (Doc Impact Search) 【强制红线】
+在更新任何文档前，**必须**提取本次代码变更涉及的**核心关键词**（类名、服务名、方法名、接口 URI、数据模型字段、状态枚举、核心业务术语），使用 `search-docs` 命令对架构文档库进行全域扫描，彻底杜绝单点更新导致的“其他关联文档逻辑过时”：
+```bash
+python "<SKILL_DIR>/scripts/arch_guardian.py" --workspace "<项目绝对路径>" search-docs <keywords...> [--arch-dir "<共享架构目录>"]
+```
+- **逐一核对**：检查所有包含该关键词的历史文档（不仅是当前模块的 README，还包含上游/下游调用方模块 README、架构总览 `ARCHITECTURE.md`、ADR 记录）。
+- **协同修正**：将所有受影响文档中的过时内容（业务流程、模型字段、时序图调用、核心接口表）同步修正为最新状态，杜绝“改了 A 文档遗漏 B 文档”的知识碎片与信息孤岛。
 
 ### 1. 全新业务模块同步 (New Domain Module)
 若本次实现属于全新的业务模块，先创建该模块的标准化文档并自动注册在主索引：

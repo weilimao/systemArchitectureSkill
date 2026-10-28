@@ -17,6 +17,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent.parent / "skills" / "architecture-g
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import arch_guardian  # noqa: E402
+import searcher  # noqa: E402
 
 
 class TestArchitectureGuardian(unittest.TestCase):
@@ -298,6 +299,65 @@ class TestArchitectureGuardian(unittest.TestCase):
         # 6. Verify integrity passes for both services
         self.assertEqual(arch_guardian.verify_architecture(order_service_dir), 0)
         self.assertEqual(arch_guardian.verify_architecture(user_service_dir), 0)
+
+    def test_search_docs_finds_all_occurrences(self):
+        """Verify search_docs finds all keyword occurrences across multiple docs."""
+        arch_guardian.init_architecture(workspace=self.workspace, project_name="SearchApp")
+        arch_guardian.add_module(self.workspace, name="order", title="订单中心")
+        arch_guardian.add_module(self.workspace, name="payment", title="支付中心")
+
+        arch_guardian.sync_feature(
+            self.workspace,
+            module="order",
+            title="退款流转",
+            description="调用 PaymentGateway.processRefund 执行资金原路退回",
+            code_ref="OrderRefundService.java",
+        )
+        arch_guardian.add_adr(self.workspace, adr_id="0001", title="PaymentGateway 集成规范")
+
+        arch_root = self.workspace / "docs" / "architecture"
+        results = searcher.search_docs(arch_root, keywords=["PaymentGateway", "processRefund"])
+
+        # Should match in ARCHITECTURE.md, modules/order/README.md, and decisions/0001-...
+        matched_rel_paths = [r.rel_path for r in results]
+        self.assertTrue(any("order" in p for p in matched_rel_paths), "Should find in order module")
+        self.assertTrue(any("ARCHITECTURE.md" in p for p in matched_rel_paths), "Should find in ARCHITECTURE.md")
+        self.assertTrue(any("decisions" in p for p in matched_rel_paths), "Should find in ADR")
+
+        formatted_report = searcher.format_search_results(results, ["PaymentGateway"], arch_root)
+        self.assertIn("架构文档全域检索结果", formatted_report)
+        self.assertIn("PaymentGateway", formatted_report)
+
+    def test_search_docs_distributed_pointer(self):
+        """Verify search-docs correctly searches in shared central arch directory."""
+        shared_arch = self.workspace / "central_docs"
+        service_repo = self.workspace / "service_a"
+        service_repo.mkdir(parents=True, exist_ok=True)
+
+        arch_guardian.init_architecture(
+            workspace=service_repo,
+            project_name="CentralPlatform",
+            arch_dir=str(shared_arch),
+        )
+        arch_guardian.add_module(service_repo, name="inventory", title="库存中心")
+
+        # Command should route to shared_arch and return 0
+        exit_code = arch_guardian.cmd_search_docs(
+            workspace=service_repo,
+            keywords=["库存中心"],
+        )
+        self.assertEqual(exit_code, 0)
+
+    def test_search_docs_cli_parsing(self):
+        """Verify search-docs subcommand parsing and execution."""
+        arch_guardian.init_architecture(workspace=self.workspace, project_name="CliApp")
+        parser = arch_guardian.build_parser()
+        args = parser.parse_args(["--workspace", str(self.workspace), "search-docs", "CliApp", "--context", "2"])
+        self.assertEqual(args.command, "search-docs")
+        self.assertEqual(args.keywords, ["CliApp"])
+        self.assertEqual(args.context, 2)
+        code = arch_guardian.cmd_search_docs(self.workspace, keywords=args.keywords, context_lines=args.context)
+        self.assertEqual(code, 0)
 
 
 if __name__ == "__main__":
