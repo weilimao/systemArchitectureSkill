@@ -1,14 +1,14 @@
 ---
 name: architecture-guardian
 description: >-
-  CRITICAL: Use this skill whenever adding, refactoring, modifying ANY business logic, changing API interfaces, or fixing business flows in the workspace.
-  It enforces a two-way architecture loop: checking existing project architecture in docs/architecture/ before implementation,
-  and synchronizing modified business logic, features, and flows into docs/architecture/ARCHITECTURE.md and module-specific docs upon completion.
+  CRITICAL: Use this skill whenever querying, understanding, troubleshooting, adding, refactoring, or modifying ANY business logic, module responsibilities, workflows, or API interfaces in the workspace.
+  Enforces a two-way architecture loop: checking and locating docs/architecture/ FIRST before answering business inquiries or implementing code,
+  and synchronizing modified business logic, features, and flows into docs/architecture/ARCHITECTURE.md and module docs upon completion.
 ---
 
 # 🛡️ Architecture Guardian (架构守护者)
 
-本 Skill 旨在解决软件工程随业务迭代膨胀而导致“架构腐化（Architecture Drift）”及“AI 遗忘全局架构”的工程痛点。它通过建立**“事前查架构、事中遵规范、事后同架构”**的确定性双向闭环，确保项目的架构文档与真实业务代码始终保持强一致性。
+本 Skill 旨在解决软件工程随业务迭代膨胀而导致“架构腐化（Architecture Drift）”及“AI 遗忘全局架构”的工程痛点。它通过建立**“事前查架构/秒级定位、事中遵规范、事后同架构”**的确定性双向闭环，确保无论是**日常业务问答咨询**还是**业务代码开发迭代**，项目的架构文档与真实业务代码始终保持强一致性与高可见度。
 
 ---
 
@@ -18,11 +18,18 @@ description: >-
 
 1. **【场景 A：纯架构文档指令 (Direct Tooling Commands)】—— 立即直接执行，严禁出方案拦截**
    - **适用指令**：用户显式要求“初始化架构文档”、“快速定位架构说明 (locate)”、“生成/更新模块说明”、“同步架构变更”、“检索文档影响面”、“记录 ADR”、“校验架构完整性”等纯文档与元数据维护命令。
-   - **行为准则**：此类指令属于**确定性辅助工具操作（Deterministic Tooling Execution）**，AI **必须直接运行 `arch_guardian.py` 或直接创建/更新目标 Markdown 架构文档**，执行完毕后直接展示生成的架构全景与文件链接，**严禁多此一举地输出等待确认的《实施方案》**！
+   - **行为准则**：属于**确定性辅助工具操作（Deterministic Tooling Execution）**，AI **必须直接运行 `arch_guardian.py` 或直接创建/更新目标 Markdown 架构文档**，执行完毕后直接展示生成的架构全景与文件链接，**严禁多此一举地输出等待确认的《实施方案》**！
 
 2. **【场景 B：业务功能/代码开发 (Business Code Implementation)】—— 严格遵循前置方案确认**
    - **适用指令**：用户要求编写、重构或修改具体的工程业务代码（如 API、Controller、Service、领域模型、数据库持久化逻辑等）。
-   - **行为准则**：严格执行全局架构红线，必须先向用户提供《业务功能实施方案》，经用户明确确认后再编写代码与测试，并在测试绿灯后进入本 Skill 的“阶段三”完成架构同步闭环。
+   - **行为准则**：严格执行全局架构红线，必须先遵循“阶段一”查阅/定位架构文档并穿透源码验证，向用户提供《业务功能实施方案》，经用户明确确认后再编写代码与测试，并在测试绿灯后进入“阶段三”完成架构同步闭环。
+
+3. **【场景 C：业务咨询、问答与排查定位 (Business Inquiry & Q&A)】—— 强制“先查架构库，再核验代码”**
+   - **适用指令**：用户询问任何业务流程、功能逻辑、系统分层、状态机流转、接口契约或模块职责（如“xxx功能是怎么实现的？”、“这个系统里超时关单逻辑在哪个类？”、“订单状态有哪些？”）。
+   - **行为准则**：**严禁直接埋头全量盲读源码**！必须遵循以下问答三步法（Inquiry SOP）：
+     - **第 1 步（秒级定位）**：优先运行 `locate <业务关键词...>` 或查阅 `modules/<module>/README.md`，获取系统设计的宏观时序流、领域模型与规则定义；
+     - **第 2 步（代码印证）**：根据架构文档中索引的核心类与关键方法，直接定点阅读源码，核实最新代码实现细节；
+     - **第 3 步（高维解答）**：结合“架构设计意图 + 真实代码细节”输出高信息密度的结构化回答，并在回答中附带指向具体架构说明的 Markdown 超链接。
 
 ---
 
@@ -30,7 +37,13 @@ description: >-
 
 ```mermaid
 flowchart TD
-    Req["接收业务新功能/修改需求"] --> Phase1["阶段一：事前对齐与代码验证 (Pre-flight)"]
+    Req["接收用户请求"] --> Decision{"请求类型判定"}
+    
+    Decision -->|"业务提问/咨询/排查"| Inq1["1. 运行 locate 或查阅架构文档 (获取宏观业务设计)"]
+    Inq1 --> Inq2["2. 定点穿透源码验证实现细节"]
+    Inq2 --> Inq3["3. 高维结构化解答 (结合架构意图与代码, 出示文档链接)"]
+    
+    Decision -->|"业务代码编写/修改/重构"| Phase1["阶段一：事前对齐与代码验证 (Pre-flight)"]
     Phase1 --> Locate["0. 快速定位 (locate) 检索章节与命中模块 (多模块首选)"]
     Locate --> Step1["1. 查阅 ARCHITECTURE.md 了解系统全景分层"]
     Step1 --> Step2["2. 靶向阅读目标 modules/<module>/README.md 明确业务规则"]

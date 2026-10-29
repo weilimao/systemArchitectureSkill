@@ -1,7 +1,7 @@
 {
   "name": "architecture-guardian-plugin",
-  "version": "1.0.0",
-  "description": "Architecture Guardian Skill for continuous architecture indexing, module-level documentation, and feature synchronization in engineering projects.",
+  "version": "1.1.0",
+  "description": "Architecture Guardian: continuous architecture indexing, section-aware locating, inquiry-first guidance, and feature synchronization.",
   "author": {
     "name": "Senior Software Architect"
   },
@@ -11,6 +11,7 @@
     "documentation",
     "living-architecture",
     "system-design",
+    "locate",
     "feature-sync",
     "anti-decay"
   ]
